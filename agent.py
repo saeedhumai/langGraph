@@ -7,23 +7,24 @@ from typing_extensions import TypedDict
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
 from openai import ChatCompletion
-
-class State(TypedDict):
-    # Messages have the type "list". The `add_messages` function
-    # in the annotation defines how this state key should be updated
-    # (in this case, it appends messages to the list, rather than overwriting them)
-    messages: Annotated[list, add_messages]
+from app.schema.llm.llm import llm
+from IPython.display import Image, display
+from app.schema.schema import State
+# class State(TypedDict):
+#     # Messages have the type "list". The `add_messages` function
+#     # in the annotation defines how this state key should be updated
+#     # (in this case, it appends messages to the list, rather than overwriting them)
+#     messages: Annotated[list, add_messages]
 
 def chatbot(state: State,llm):
    return {"messages": [llm.invoke(state["messages"])]}
 
-from IPython.display import Image, display
 def display_graph(graph):
-try:
+   try:
     display(Image(graph.get_graph().draw_mermaid_png()))
-except Exception:
+   except Exception:
     # This requires some extra dependencies and is optional
-    pass
+      pass
 
 
 
