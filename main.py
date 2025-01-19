@@ -17,35 +17,22 @@ class State(TypedDict):
 def chatbot(state: State,llm):
    return {"messages": [llm.invoke(state["messages"])]}
 
-from IPython.display import Image, display
-def display_graph(graph):
-try:
-    display(Image(graph.get_graph().draw_mermaid_png()))
-except Exception:
-    # This requires some extra dependencies and is optional
-    pass
 
 
+# Then add the node
 
 
 
 
 def main():
    llm = ChatCompletion(model="gpt-4o-mini",api_key=openai_api_key,temperature=0.7)
-   # Then add the node
    graph_builder.add_node("chatbot", chatbot(llm))
    # Initialize graph_builder first
    graph_builder = StateGraph(State)
-   graph_builder.add_edge(START, "chatbot")
-   graph_builder.add_edge("chatbot", END)
-   graph = graph_builder.compile()
-   input("Press Enter to display the graph...")
-   if input == "y":
-       display_graph(graph)
-   else:
-       print("Graph not displayed")
-   
 
+   # print(f"openai_api_key is loaded : {openai_api_key}")
+   # print(f"graph_builder is loaded : {graph_builder}")
+   
 
 
 
