@@ -10,8 +10,11 @@ from IPython.display import Image, display
 import os
 import json
 from fastapi import FastAPI
-
-app = FastAPI()
+app = FastAPI(
+    title="Chatbot",
+    description="A chatbot that can search the web and answer questions",
+    version="1.0.0"
+)
 
 # Set up logging
 logging.basicConfig(
@@ -69,14 +72,12 @@ def chatbot(state: State, llm_func):
                         "function": {"name": "tavily_search", "arguments": tool_call.function.arguments}
                     }]
                 })
-                
                 messages.append({
                     "role": "tool",
                     "content": str(search_result),
                     "tool_call_id": tool_call.id,
                     "name": "tavily_search"
                 })
-                
                 # Get final response from LLM with search results
                 final_response = llm_func(messages)
                 logger.debug(f"Final response with search results: {final_response}")
@@ -111,12 +112,44 @@ def save_graph(graph):
     except Exception as e:
         logger.error(f"Error saving graph: {str(e)}", exc_info=True)
 
+def should_search(state: State) -> bool:
+    last_message = state["messages"][-1]
+    content = last_message["content"] if isinstance(last_message, dict) else last_message.content
+    # Check if the message indicates a need for search (questions about current events, weather, etc.)
+    search_indicators = ["what", "who", "when", "where", "how", "why", "current", "latest", "news", "weather"]
+    return any(indicator in content.lower() for indicator in search_indicators)
+
+def web_search(state: State):
+    try:
+        from app.llmtools.tools import tool
+        last_message = state["messages"][-1]
+        content = last_message["content"] if isinstance(last_message, dict) else last_message.content
+        search_result = tool.invoke(content)
+        return {"messages": [{"role": "system", "content": f"Search result: {search_result}"}]}
+    except Exception as e:
+        logger.error(f"Search error: {str(e)}")
+        return {"messages": [{"role": "system", "content": f"Search failed: {str(e)}"}]}
+
 def create_graph():
     try:
         graph_builder = StateGraph(State)
+        
+        # Add nodes
         graph_builder.add_node("chatbot", lambda state: chatbot(state, llm))
+        graph_builder.add_node("web_search", web_search)
+        
+        # Add conditional edges
         graph_builder.add_edge(START, "chatbot")
-        graph_builder.add_edge("chatbot", END)
+        graph_builder.add_conditional_edges(
+            "chatbot",
+            should_search,
+            {
+                True: "web_search",
+                False: END
+            }
+        )
+        graph_builder.add_edge("web_search", "chatbot")
+        
         logger.info("Graph created successfully")
         return graph_builder.compile()
     except Exception as e:
@@ -176,10 +209,7 @@ def askquestion(question: str):
         logger.error(f"Error processing question: {str(e)}", exc_info=True)
         return {"error": str(e)}
 
-@app.get("/schema")
-def schema():
-    schema = State.messages
-    return {"messages": schema}
+
 
 if __name__ == "__main__":
     main()
